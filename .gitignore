@@ -1,3 +1,6 @@
+# Ignore models because they are too large for github
+models/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
