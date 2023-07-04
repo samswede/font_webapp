@@ -1,41 +1,79 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import torch
+import torchvision
 
-# Retrieve array of top 8 recommendations from distance calculation
 
-#calculate all distances and returns an unsorted list corresponding 
-# with distances to each node with the corresponding index
-def all_distances(point_1, all_points):
-    #point_1 is tsne_results[index], all_points is tsne_results
-    distances = [np.sqrt(np.sum((point_1-all_points[x])**2)) for x in range(len(all_points))]
-    index = np.arange(len(all_points))  #...
-    distances = np.stack((index, distances), axis=-1)
 
-    return distances
+#Show tranformed images
 
-#Sort shortest to longest
-def sort_distances(array):
-    #distances must be in 2nd column for this to work
-    _sorted_array = array[np.argsort(array[:, 1])]
-    return _sorted_array
+def show_transformed_images(dataset):
+    loader = torch.utils.data.DataLoader(dataset, batch_size = 6, shuffle = True)
+    batch = next(iter(loader))
+    images, labels = batch
 
-#returns an array of the indices of recommended fonts from top to bottom
-def return_index_recommendations(array_2d):
-    recommendations = array_2d[:,0]
-    recommendations = recommendations.astype(int)
-    return recommendations
+    grid = torchvision.utils.make_grid(images, nrow = 3)
+    plt.figure(figsize=(11, 11))
+    plt.imshow(np.transpose(grid, (1, 2, 0)))
 
-def create_recommendation_matrix(embedding):
-  recommendation_matrix = np.zeros((len(embedding), len(embedding)))
 
-  for i in range(len(embedding)):
-    #compute distances from node i, and then sort by distance in ascending order
-    sorted_distances = sort_distances(all_distances(embedding[i], embedding))
-    #keep only sorted array of indices
-    recommendation_indices = return_index_recommendations(sorted_distances)
-    #create out edges in graph for node i
-    recommendation_matrix[i] = recommendation_indices
+def train_epoch(vae, device, dataloader, optimizer):
+    # Set train mode for both the encoder and the decoder
+    vae.train()
+    train_loss = 0.0
+    # Iterate the dataloader (we do not need the label values, this is unsupervised learning)
+    for x, _ in dataloader: 
+        # Move tensor to the proper device
+        x = x.to(device)
+        x_hat = vae(x)
+        # Evaluate loss
+        loss = ((x - x_hat)**2).sum() + vae.encoder.kl
 
-      #creates 1s in the row (representing font node that needs recommendations) 
-      #for all columns that correspond with the recommended fonts
+        # Backward pass
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        # Print batch loss
+        #print('\t partial train loss (single batch): %f' % (loss.item()))
+        train_loss+=loss.item()
 
-  return recommendation_matrix.astype(int)
+    return train_loss / len(dataloader.dataset)
+
+def test_epoch(vae, device, dataloader):
+    # Set evaluation mode for encoder and decoder
+    vae.eval()
+    val_loss = 0.0
+    with torch.no_grad(): # No need to track the gradients
+        for x, _ in dataloader:
+            # Move tensor to the proper device
+            x = x.to(device)
+            # Encode data
+            encoded_data = vae.encoder(x)
+            # Decode data
+            x_hat = vae(x)
+            loss = ((x - x_hat)**2).sum() + vae.encoder.kl
+            val_loss += loss.item()
+
+    return val_loss / len(dataloader.dataset)
+
+def plot_ae_outputs(encoder, decoder, test_dataset, device, n=8):
+    plt.figure(figsize=(10,4.5))
+    for i in range(n):
+        ax = plt.subplot(2,n,i+1)
+        img = test_dataset[(3*i)**2+i][0].unsqueeze(0).to(device)
+        encoder.eval()
+        decoder.eval()
+        with torch.no_grad():
+            rec_img  = decoder(encoder(img))
+        plt.imshow(img.cpu().squeeze().numpy(), cmap='gist_gray')
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)  
+        if i == n//2:
+            ax.set_title('Original images')
+            ax = plt.subplot(2, n, i + 1 + n)
+            plt.imshow(rec_img.cpu().squeeze().numpy(), cmap='gist_gray')  
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)  
+        if i == n//2:
+            ax.set_title('Reconstructed images')
+    plt.show()   

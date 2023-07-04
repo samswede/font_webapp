@@ -14,7 +14,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from variational_autoencoder import *
+from OLD_variational_autoencoder import *
 from manager import *
 from vector_database import *
 from dimensionality_reduction import *

@@ -7,7 +7,7 @@ import base64
 from PIL import Image
 import io
 
-from variational_autoencoder import *
+from NEW_variational_autoencoder import *
 
 class VAEModel:
     def __init__(self, model_path, embeddings_path, latent_dims):

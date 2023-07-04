@@ -12,7 +12,7 @@ from typing import List, Dict
 from vector_database import *
 from utils import *
 from manager import *
-from variational_autoencoder import *
+from OLD_variational_autoencoder import *
 
 # Import module to retrieve data from google drive
 import gdown
